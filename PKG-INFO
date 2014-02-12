@@ -1,0 +1,24 @@
+Metadata-Version: 1.0
+Name: Quixote
+Version: 1.2
+Summary: A highly Pythonic Web application framework
+Home-page: http://www.mems-exchange.org/software/quixote/
+Author: MEMS Exchange
+Author-email: quixote@mems-exchange.org
+License: CNRI Open Source License (see LICENSE.txt)
+Provides: quixote-1.2
+Provides: quixote.demo-1.2
+Provides: quixote.form-1.2
+Provides: quixote.form2-1.2
+Provides: quixote.server-1.2
+Download-URL: http://www.mems-exchange.org/software/files/quixote/Quixote-1.2.tar.gz
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: License :: OSI Approved :: Python License (CNRI Python License)
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: Unix
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content

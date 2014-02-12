@@ -1,0 +1,27 @@
+
+* Extend HTTPRequest to support single/multiple-valued fields.
+
+* Add way to strip redundant whitespace from output HTML (or pipe it
+  through Tidy, or other transformations).
+
+* Logging doesn't work with CGI scripts (something about our
+  log-opening code depends on how fastcgi.py fiddles stdout).
+
+* Make bare return statements inside of PTL templates work as expected.
+
+* Allow __init__.ptl files to be used as package markers.  It looks like
+  something is wrong with the way ihooks handles __init__ modules.
+
+* Figure out how to unify the various deployment methods (CGI, FastCGI,
+  SCGI, mod_python, ...).  Ideally, a one-line change to the config file
+  and/or driver script (along with corresponding web server config
+  changes) would be enough to change how a Quixote application is
+  deployed.
+
+* For OpenBSD: fcgi.py should catch SIGTERM and, umm, do something.
+  (Terminate the process?)  Otherwise, the FastCGI process can no longer
+  accept() on its socket.  (Reported by Robin Wöhler
+  <rw@robinwoehler.de>, 2002/08/02.)
+
+* For Mac OS X: _startup() in fcgi.py doesn't work for some reason on
+  OS X.  Figure out why and fix it (or kludge around it).

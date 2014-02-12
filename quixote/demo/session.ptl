@@ -1,0 +1,151 @@
+# quixote.demo.session
+#
+# Application code for the Quixote session management demo.
+# Driver script is session_demo.cgi.
+
+__revision__ = "$Id: session.ptl 23532 2004-02-20 22:38:57Z dbinger $"
+
+from quixote import get_session_manager
+from quixote.errors import QueryError
+
+_q_exports = ['login', 'logout']
+
+
+# Typical stuff for any Quixote app.
+
+def page_header [html] (title):
+    '''\
+<html>
+<head><title>%s</title></head>
+<body>
+<h1>%s</h1>
+''' % (title, title)
+
+def page_footer [html] ():
+    '''\
+</body>
+</html>
+'''
+
+
+# We include the login form on two separate pages, so it's been factored
+# out to a separate template.
+
+def login_form [html] ():
+    '''
+<form method="POST" action="login">
+  <input name="name" width=30>
+  <input type="submit">
+</form>
+'''
+
+
+def _q_index [html] (request):
+    page_header("Quixote Session Management Demo")
+
+    session = request.session
+
+    # All Quixote sessions have the ability to track the user's identity
+    # in session.user.  In this simple application, session.user is just
+    # a string which the user enters directly into this form.  In the
+    # real world, you would of course use a more sophisticated form of
+    # authentication (eg. enter a password over an SSL connection), and
+    # session.user might be an object with information about the user
+    # (their email address, password hash, preferences, etc.).
+
+    if session.user is None:
+        '''
+<p>You haven\'t introduced yourself yet.<br>
+Please tell me your name:
+'''
+        login_form()
+    else:
+        '<p>Hello, %s.  Good to see you again.</p>\n' % session.user
+
+    '''
+You can now:
+<ul>
+'''
+    if session.user:
+        '  <li><a href="login">become someone else</a> (login again)\n'
+    '  <li><a href="logout">leave this session</a> (logout)\n'
+    '</ul>\n'
+
+    # The other piece of information we track here is the number of
+    # requests made in each session; report that information for the
+    # current session here.
+    """\
+<p>Your session is <code>%s</code><br>
+You have made %d request(s) (including this one) in this session.</p>
+""" % (repr(session), session.num_requests)
+
+    # The session manager is the collection of all sessions managed by
+    # the current publisher, ie. in this process.  Poking around in the
+    # session manager is not something you do often, but it's really
+    # handy for debugging/site administration.
+    mgr = get_session_manager()
+    session_ids = mgr.keys()
+    '''
+<p>The current session manager is <code>%s</code><br>
+It has %d session(s) in it right now:</p>
+<table border=1>
+  <tr><th>session id</th><th>user</th><th>num requests</th></tr>
+''' % (repr(mgr), len(session_ids))
+    for sess_id in session_ids:
+        sess = mgr[sess_id]
+        ('  <tr><td>%s</td><td>%s</td><td>%d</td>\n'
+         % (sess.id,
+            sess.user and sess.user or "<i>none</i>",
+            sess.num_requests))
+    '<table>\n'
+
+    page_footer()
+
+
+# The login() template has two purposes: to display a page with just a
+# login form, and to process the login form submitted either from the
+# index page or from login() itself.  This is a fairly common idiom in
+# Quixote (just as it's a fairly common idiom with CGI scripts -- it's
+# just cleaner with Quixote).
+
+def login [html] (request):
+    page_header("Quixote Session Demo: Login")
+    session = request.session
+
+    # We seem to be processing the login form.
+    if request.form:
+        user = request.form.get("name")
+        if not user:
+            raise QueryError("no user name supplied")
+
+        session.user = user
+
+        '<p>Welcome, %s!  Thank you for logging in.</p>\n' % user
+        '<a href="./">back to start</a>\n'
+
+    # No form data to process, so generate the login form instead.  When
+    # the user submits it, we'll return to this template and take the
+    # above branch.
+    else:
+        '<p>Please enter your name here:</p>\n'
+        login_form()
+
+    page_footer()
+
+
+# logout() just expires the current session, ie. removes it from the
+# session manager and instructs the client to forget about the session
+# cookie.  The only code necessary is the call to
+# SessionManager.expire_session() -- the rest is just user interface.
+
+def logout [html] (request):
+    page_header("Quixote Session Demo: Logout")
+    session = request.session
+    if session.user:
+        '<p>Goodbye, %s.  See you around.</p>\n' % session.user
+
+    get_session_manager().expire_session(request)
+
+    '<p>Your session has been expired.</p>\n'
+    '<p><a href="./">start over</a></p>\n'
+    page_footer()

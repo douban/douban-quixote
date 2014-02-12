@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>HTTP Upload with Quixote</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="http-upload-with-quixote">
+<h1 class="title">HTTP Upload with Quixote</h1>
+<p>Starting with Quixote 0.5.1, Quixote has a new mechanism for handling
+HTTP upload requests.  The bad news is that Quixote applications that
+already handle file uploads will have to change; the good news is that
+the new way is much simpler, saner, and more efficient.</p>
+<p>As (vaguely) specified by RFC 1867, HTTP upload requests are implemented
+by transmitting requests with a Content-Type header of
+<tt class="literal"><span class="pre">multipart/form-data</span></tt>.  (Normal HTTP form-processing requests have a
+Content-Type of <tt class="literal"><span class="pre">application/x-www-form-urlencoded</span></tt>.)  Since this type
+of request is generally only used for file uploads, Quixote 0.5.1
+introduced a new class for dealing with it: HTTPUploadRequest, a
+subclass of HTTPRequest.</p>
+<div class="section" id="upload-form">
+<h1><a name="upload-form">Upload Form</a></h1>
+<p>Here's how it works: first, you create a form that will be encoded
+according to RFC 1867, ie. with <tt class="literal"><span class="pre">multipart/form-data</span></tt>.  You can put
+any ordinary form elements there, but for a file upload to take place,
+you need to supply at least one <tt class="literal"><span class="pre">file</span></tt> form element.  Here's an
+example:</p>
+<pre class="literal-block">
+def upload_form [html] (request):
+    '''
+    &lt;form enctype=&quot;multipart/form-data&quot;
+          method=&quot;POST&quot; 
+          action=&quot;receive&quot;&gt;
+      Your name:&lt;br&gt;
+      &lt;input type=&quot;text&quot; name=&quot;name&quot;&gt;&lt;br&gt;
+      File to upload:&lt;br&gt;
+      &lt;input type=&quot;file&quot; name=&quot;upload&quot;&gt;&lt;br&gt;
+      &lt;input type=&quot;submit&quot; value=&quot;Upload&quot;&gt;
+    &lt;/form&gt;
+    '''
+</pre>
+<p>(You can use Quixote's widget classes to construct the non-<tt class="literal"><span class="pre">file</span></tt> form
+elements, but the Form class currently doesn't know about the
+<tt class="literal"><span class="pre">enctype</span></tt> attribute, so it's not much use here.  Also, you can supply
+multiple <tt class="literal"><span class="pre">file</span></tt> widgets to upload multiple files simultaneously.)</p>
+<p>The user fills out this form as usual; most browsers let the user either
+enter a filename or select a file from a dialog box.  But when the form
+is submitted, the browser creates an HTTP request that is different from
+other HTTP requests in two ways:</p>
+<ul class="simple">
+<li>it's encoded according to RFC 1867, i.e. as a MIME message where each
+sub-part is one form variable (this is irrelevant to you -- Quixote's
+HTTPUploadRequest takes care of the details)</li>
+<li>it's arbitrarily large -- even for very large and complicated HTML
+forms, the HTTP request is usually no more than a few hundred bytes.
+With file upload, the uploaded file is included right in the request,
+so the HTTP request is as large as the upload, plus a bit of overhead.</li>
+</ul>
+</div>
+<div class="section" id="how-quixote-handles-the-upload-request">
+<h1><a name="how-quixote-handles-the-upload-request">How Quixote Handles the Upload Request</a></h1>
+<p>When Quixote sees an HTTP request with a Content-Type of
+<tt class="literal"><span class="pre">multipart/form-data</span></tt>, it creates an HTTPUploadRequest object instead
+of the usual HTTPRequest.  (This happens even if there's not an uploaded
+file in the request -- Quixote doesn't know this when the request object
+is created, and <tt class="literal"><span class="pre">multipart/form-data</span></tt> requests are oddballs that are
+better handled by a completely separate class, whether they actually
+include an upload or not.)  This is the <tt class="literal"><span class="pre">request</span></tt> object that will be
+passed to your form-handling function or template, eg.</p>
+<pre class="literal-block">
+def receive [html] (request):
+    print request
+</pre>
+<p>should print an HTTPUploadRequest object to the debug log, assuming that
+<tt class="literal"><span class="pre">receive()</span></tt> is being invoked as a result of the above form.</p>
+<p>However, since upload requests can be arbitrarily large, it might be
+some time before Quixote actually calls <tt class="literal"><span class="pre">receive()</span></tt>.  And Quixote has
+to interact with the real world in a number of ways in order to parse
+the request, so there are a number of opportunities for things to go
+wrong.  In particular, whenever Quixote sees a file upload variable in
+the request, it:</p>
+<ul class="simple">
+<li>checks that the <tt class="literal"><span class="pre">UPLOAD_DIR</span></tt> configuration variable was defined.
+If not, it raises ConfigError.</li>
+<li>ensures that <tt class="literal"><span class="pre">UPLOAD_DIR</span></tt> exists, and creates it if not. (It's
+created with the mode specified by <tt class="literal"><span class="pre">UPLOAD_DIR_MODE</span></tt>, which defaults
+to <tt class="literal"><span class="pre">0755</span></tt>.  I have no idea what this should be on Windows.) If this
+fails, your application will presumably crash with an OSError.</li>
+<li>opens a temporary file in <tt class="literal"><span class="pre">UPLOAD_DIR</span></tt> and write the contents
+of the uploaded file to it.  Either opening or writing could fail
+with IOError.</li>
+</ul>
+<p>Furthermore, if there are any problems parsing the request body -- which
+could be the result of either a broken/malicious client or of a bug in
+HTTPUploadRequest -- then Quixote raises RequestError.</p>
+<p>These errors are treated the same as any other exception Quixote
+encounters: RequestError (which is a subclass of PublishError) is
+transformed into a &quot;400 Invalid request&quot; HTTP response, and the others
+become some form of &quot;internal server error&quot; response, with traceback
+optionally shown to the user, emailed to you, etc.</p>
+</div>
+<div class="section" id="processing-the-upload-request">
+<h1><a name="processing-the-upload-request">Processing the Upload Request</a></h1>
+<p>If Quixote successfully parses the upload request, then it passes a
+<tt class="literal"><span class="pre">request</span></tt> object to some function or PTL template that you supply, as
+usual.  Of course, that <tt class="literal"><span class="pre">request</span></tt> object will be an instance of
+HTTPUploadRequest rather than HTTPRequest, but that doesn't make much
+difference to you.  You can access form variables, cookies, etc. just as
+you usually do.  The only difference is that form variables associated
+with uploaded files are represented as Upload objects.  Here's an
+example that goes with the above upload form:</p>
+<pre class="literal-block">
+def receive [html] (request):
+    name = request.form.get(&quot;name&quot;)
+    if name:
+        &quot;&lt;p&gt;Thanks, %s!&lt;/p&gt;\n&quot; % name
+
+    upload = request.form.get(&quot;upload&quot;)
+    size = os.stat(upload.tmp_filename)[stat.ST_SIZE]
+    if not upload.base_filename or size == 0:
+        &quot;&lt;p&gt;You appear not to have uploaded anything.&lt;/p&gt;\n&quot;
+    else:
+        '''\
+        &lt;p&gt;You just uploaded &lt;code&gt;%s&lt;/code&gt; (%d bytes)&lt;br&gt;
+        which is temporarily stored in &lt;code&gt;%s&lt;/code&gt;.&lt;/p&gt;
+        ''' % (upload.base_filename, size, upload.tmp_filename)
+</pre>
+<p>Upload objects provide three attributes of interest:</p>
+<dl>
+<dt><tt class="literal"><span class="pre">orig_filename</span></tt></dt>
+<dd>the complete filename supplied by the user-agent in the request that
+uploaded this file.  Depending on the browser, this might have the
+complete path of the original file on the client system, in the client
+system's syntax -- eg.  <tt class="literal"><span class="pre">C:\foo\bar\upload_this</span></tt> or
+<tt class="literal"><span class="pre">/foo/bar/upload_this</span></tt> or <tt class="literal"><span class="pre">foo:bar:upload_this</span></tt>.</dd>
+<dt><tt class="literal"><span class="pre">base_filename</span></tt></dt>
+<dd>the base component of orig_filename, shorn of MS-DOS, Mac OS, and Unix
+path components and with &quot;unsafe&quot; characters replaced with
+underscores.  (The &quot;safe&quot; characters are <tt class="literal"><span class="pre">A-Z</span></tt>, <tt class="literal"><span class="pre">a-z</span></tt>, <tt class="literal"><span class="pre">0-9</span></tt>,
+<tt class="literal"><span class="pre">-</span> <span class="pre">&#64;</span> <span class="pre">&amp;</span> <span class="pre">+</span> <span class="pre">=</span> <span class="pre">_</span> <span class="pre">.</span></tt>, and space.  Thus, this is &quot;safe&quot; in the sense that
+it's OK to create a filename with any of those characters on Unix, Mac
+OS, and Windows, <em>not</em> in the sense that you can use the filename in
+an HTML document without quoting it!)</dd>
+<dt><tt class="literal"><span class="pre">tmp_filename</span></tt></dt>
+<dd>where you'll actually find the file on the current system</dd>
+</dl>
+<p>Thus, you could open the file directly using <tt class="literal"><span class="pre">tmp_filename</span></tt>, or move
+it to a permanent location using <tt class="literal"><span class="pre">tmp_filename</span></tt> and <tt class="literal"><span class="pre">base_filename</span></tt>
+-- whatever.</p>
+</div>
+<div class="section" id="upload-demo">
+<h1><a name="upload-demo">Upload Demo</a></h1>
+<p>The above upload form and form-processor are available, in a slightly
+different form, in <tt class="literal"><span class="pre">demo/upload.cgi</span></tt>.  Install that file to your usual
+<tt class="literal"><span class="pre">cgi-bin</span></tt> directory and play around.</p>
+<p>$Id: upload.txt 20217 2003-01-16 20:51:53Z akuchlin $</p>
+</div>
+</div>
+</body>
+</html>

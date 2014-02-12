@@ -1,0 +1,168 @@
+HTTP Upload with Quixote
+========================
+
+Starting with Quixote 0.5.1, Quixote has a new mechanism for handling
+HTTP upload requests.  The bad news is that Quixote applications that
+already handle file uploads will have to change; the good news is that
+the new way is much simpler, saner, and more efficient.
+
+As (vaguely) specified by RFC 1867, HTTP upload requests are implemented
+by transmitting requests with a Content-Type header of
+``multipart/form-data``.  (Normal HTTP form-processing requests have a
+Content-Type of ``application/x-www-form-urlencoded``.)  Since this type
+of request is generally only used for file uploads, Quixote 0.5.1
+introduced a new class for dealing with it: HTTPUploadRequest, a
+subclass of HTTPRequest.
+
+
+Upload Form
+-----------
+
+Here's how it works: first, you create a form that will be encoded
+according to RFC 1867, ie. with ``multipart/form-data``.  You can put
+any ordinary form elements there, but for a file upload to take place,
+you need to supply at least one ``file`` form element.  Here's an
+example::
+
+    def upload_form [html] (request):
+        '''
+        <form enctype="multipart/form-data"
+              method="POST" 
+              action="receive">
+          Your name:<br>
+          <input type="text" name="name"><br>
+          File to upload:<br>
+          <input type="file" name="upload"><br>
+          <input type="submit" value="Upload">
+        </form>
+        '''
+
+(You can use Quixote's widget classes to construct the non-``file`` form
+elements, but the Form class currently doesn't know about the
+``enctype`` attribute, so it's not much use here.  Also, you can supply
+multiple ``file`` widgets to upload multiple files simultaneously.)
+
+The user fills out this form as usual; most browsers let the user either
+enter a filename or select a file from a dialog box.  But when the form
+is submitted, the browser creates an HTTP request that is different from
+other HTTP requests in two ways:
+
+* it's encoded according to RFC 1867, i.e. as a MIME message where each
+  sub-part is one form variable (this is irrelevant to you -- Quixote's
+  HTTPUploadRequest takes care of the details)
+
+* it's arbitrarily large -- even for very large and complicated HTML
+  forms, the HTTP request is usually no more than a few hundred bytes.
+  With file upload, the uploaded file is included right in the request,
+  so the HTTP request is as large as the upload, plus a bit of overhead.
+
+
+How Quixote Handles the Upload Request
+--------------------------------------
+
+When Quixote sees an HTTP request with a Content-Type of
+``multipart/form-data``, it creates an HTTPUploadRequest object instead
+of the usual HTTPRequest.  (This happens even if there's not an uploaded
+file in the request -- Quixote doesn't know this when the request object
+is created, and ``multipart/form-data`` requests are oddballs that are
+better handled by a completely separate class, whether they actually
+include an upload or not.)  This is the ``request`` object that will be
+passed to your form-handling function or template, eg. ::
+
+    def receive [html] (request):
+        print request
+
+should print an HTTPUploadRequest object to the debug log, assuming that
+``receive()`` is being invoked as a result of the above form.
+
+However, since upload requests can be arbitrarily large, it might be
+some time before Quixote actually calls ``receive()``.  And Quixote has
+to interact with the real world in a number of ways in order to parse
+the request, so there are a number of opportunities for things to go
+wrong.  In particular, whenever Quixote sees a file upload variable in
+the request, it:
+
+* checks that the ``UPLOAD_DIR`` configuration variable was defined.
+  If not, it raises ConfigError.
+
+* ensures that ``UPLOAD_DIR`` exists, and creates it if not. (It's
+  created with the mode specified by ``UPLOAD_DIR_MODE``, which defaults
+  to ``0755``.  I have no idea what this should be on Windows.) If this
+  fails, your application will presumably crash with an OSError.
+
+* opens a temporary file in ``UPLOAD_DIR`` and write the contents
+  of the uploaded file to it.  Either opening or writing could fail
+  with IOError.
+
+Furthermore, if there are any problems parsing the request body -- which
+could be the result of either a broken/malicious client or of a bug in
+HTTPUploadRequest -- then Quixote raises RequestError.
+
+These errors are treated the same as any other exception Quixote
+encounters: RequestError (which is a subclass of PublishError) is
+transformed into a "400 Invalid request" HTTP response, and the others
+become some form of "internal server error" response, with traceback
+optionally shown to the user, emailed to you, etc.
+
+
+Processing the Upload Request
+-----------------------------
+
+If Quixote successfully parses the upload request, then it passes a
+``request`` object to some function or PTL template that you supply, as
+usual.  Of course, that ``request`` object will be an instance of
+HTTPUploadRequest rather than HTTPRequest, but that doesn't make much
+difference to you.  You can access form variables, cookies, etc. just as
+you usually do.  The only difference is that form variables associated
+with uploaded files are represented as Upload objects.  Here's an
+example that goes with the above upload form::
+
+    def receive [html] (request):
+        name = request.form.get("name")
+        if name:
+            "<p>Thanks, %s!</p>\n" % name
+
+        upload = request.form.get("upload")
+        size = os.stat(upload.tmp_filename)[stat.ST_SIZE]
+        if not upload.base_filename or size == 0:
+            "<p>You appear not to have uploaded anything.</p>\n"
+        else:
+            '''\
+            <p>You just uploaded <code>%s</code> (%d bytes)<br>
+            which is temporarily stored in <code>%s</code>.</p>
+            ''' % (upload.base_filename, size, upload.tmp_filename)
+
+Upload objects provide three attributes of interest:
+
+``orig_filename``
+  the complete filename supplied by the user-agent in the request that
+  uploaded this file.  Depending on the browser, this might have the
+  complete path of the original file on the client system, in the client
+  system's syntax -- eg.  ``C:\foo\bar\upload_this`` or
+  ``/foo/bar/upload_this`` or ``foo:bar:upload_this``.
+
+``base_filename``
+  the base component of orig_filename, shorn of MS-DOS, Mac OS, and Unix
+  path components and with "unsafe" characters replaced with
+  underscores.  (The "safe" characters are ``A-Z``, ``a-z``, ``0-9``,
+  ``- @ & + = _ .``, and space.  Thus, this is "safe" in the sense that
+  it's OK to create a filename with any of those characters on Unix, Mac
+  OS, and Windows, *not* in the sense that you can use the filename in
+  an HTML document without quoting it!)
+  
+``tmp_filename``
+  where you'll actually find the file on the current system
+
+Thus, you could open the file directly using ``tmp_filename``, or move
+it to a permanent location using ``tmp_filename`` and ``base_filename``
+-- whatever.
+
+
+Upload Demo
+-----------
+
+The above upload form and form-processor are available, in a slightly
+different form, in ``demo/upload.cgi``.  Install that file to your usual
+``cgi-bin`` directory and play around.
+
+$Id: upload.txt 20217 2003-01-16 20:51:53Z akuchlin $

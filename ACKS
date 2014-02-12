@@ -1,0 +1,44 @@
+Acknowledgements
+================
+
+The Quixote developer team would like to thank everybody who
+contributed in any way, with code, hints, bug reports, ideas, moral
+support, endorsement, or even complaints.  Listed in alphabetical
+order:
+
+David Ascher
+Anton Benard
+Titus Brown
+Oleg Broytmann
+David M. Cooke
+Jonathan Corbet
+Herman Cuppens
+Toby Dickenson
+Ray Drew
+Jim Dukarm
+Quinn Dunkan
+Robin Dunn (original author of fcgi.py)
+Jon Dyte
+David Edwards
+Graham Fawcett
+Jim Fulton (original author of the *Request and *Response classes)
+David Goodger
+Neal M. Holtz
+Kaweh Kazemi
+Shahms E. King
+A.M. Kuchling    <amk@amk.ca>
+Erno Kuusela
+Nicola Larosa
+Hamish Lawson
+Patrick K. O'Brien
+Brendan T O'Connor
+Ed Overly
+Paul Richardson
+Jeff Rush
+Neil Schemenauer <nascheme@mems-exchange.org>
+Jason Sibre
+Gregory P. Smith
+Mikhail Sobolev
+Johann Visagie
+Greg Ward        <gward@mems-exchange.org>
+The whole gang at the Zope Corporation

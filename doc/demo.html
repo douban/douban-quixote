@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>Running the Quixote Demo</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="running-the-quixote-demo">
+<h1 class="title">Running the Quixote Demo</h1>
+<p>Quixote comes with a tiny demonstration application that you can install
+and run on your web server.  In a few dozen lines of Python and PTL
+code, it demonstrates most of Quixote's basic capabilities.  It's also
+an easy way to make sure that your Python installation and web server
+configuration are cooperating so that Quixote applications can work.</p>
+<div class="section" id="installation">
+<h1><a name="installation">Installation</a></h1>
+<p>The demo is included in the quixote.demo package, which is installed
+along with the rest of Quixote when you run <tt class="literal"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">install</span></tt>.
+The driver script (demo.cgi) and associated configuration file
+(demo.conf) are <em>not</em> installed automatically -- you'll have to copy
+them from the demo/ subdirectory to your web server's CGI directory.
+Eg., if you happen to use the same web server tree as we do:</p>
+<pre class="literal-block">
+cp -p demo/demo.cgi demo/demo.conf /www/cgi-bin
+</pre>
+<p>You'll almost certainly need to edit the <tt class="literal"><span class="pre">#!</span></tt> line of demo.cgi to ensure
+that it points to the correct Python interpreter -- it should be the
+same interpreter that you used to run <tt class="literal"><span class="pre">setup.py</span> <span class="pre">install</span></tt>.</p>
+</div>
+<div class="section" id="verifying-the-installation">
+<h1><a name="verifying-the-installation">Verifying the installation</a></h1>
+<p>Before we try to access the demo via your web server, let's make sure
+that the quixote and quixote.demo packages are installed on your system:</p>
+<pre class="literal-block">
+$ python
+Python 2.1.1 (#2, Jul 30 2001, 12:04:51) 
+[GCC 2.95.2 20000220 (Debian GNU/Linux)] on linux2
+Type &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.
+&gt;&gt;&gt; import quixote
+&gt;&gt;&gt; quixote.enable_ptl()
+&gt;&gt;&gt; import quixote.demo
+</pre>
+<p>(Quixote requires Python 2.0 or greater; you might have to name an
+explicit Python interpreter, eg. <tt class="literal"><span class="pre">/usr/local/bin/python2.1</span></tt>.  Make
+sure that the Python interpreter you use here is the same as you put in
+the <tt class="literal"><span class="pre">#!</span></tt> line of demo.cgi, and the same that you used to install
+Quixote.)</p>
+<p>If this runs without errors, then Quixote (and its demo) are installed
+such that you can import them.  It remains to be seen if the user that
+will run the driver script -- usually <tt class="literal"><span class="pre">nobody</span></tt> -- can import them.</p>
+</div>
+<div class="section" id="running-the-demo-directly">
+<h1><a name="running-the-demo-directly">Running the demo directly</a></h1>
+<p>Assuming that</p>
+<ul class="simple">
+<li>your web server is running on the current host</li>
+<li>your web server is configured to handle requests to
+/cgi-bin/demo.cgi by running the demo.cgi script that you just
+installed (eg. to /www/cgi-bin/demo.cgi)</li>
+</ul>
+<p>then you should now be able to run the Quixote demo by directly
+referring to the demo.cgi script.</p>
+<p>Another option, if you have the Medusa package installed, is to run:</p>
+<pre class="literal-block">
+python server/medusa_http.py
+</pre>
+<p>This will start a small pure-Python web server running on port 8080.
+(Medusa is available from <a class="reference" href="http://www.amk.ca/python/code/medusa.html">http://www.amk.ca/python/code/medusa.html</a> .)</p>
+<p>Start a web browser and load</p>
+<pre class="literal-block">
+http://localhost/cgi-bin/demo.cgi/
+</pre>
+<p>or</p>
+<pre class="literal-block">
+http://localhost:8080/
+</pre>
+<p>if you're using Medusa.</p>
+<p>You should see a page titled &quot;Quixote Demo&quot; with the headline &quot;Hello,
+world!&quot;.  Feel free to poke around; you can't break anything through the
+demo.  (That's not to say you can't break things with Quixote in
+general; since Quixote gives you the full power of Python for your web
+applications, you have the power to create stupid security holes.)</p>
+<p>If you don't get the &quot;Quixote Demo&quot; page, go look in your web server's
+error log.  Some things that might go wrong:</p>
+<ul>
+<li><p class="first">your web server is not configured to run CGI scripts, or it
+might use a different base URL for them.  If you're running
+Apache, look for something like</p>
+<pre class="literal-block">
+ScriptAlias /cgi-bin/ /www/cgi-bin/
+</pre>
+<p>in your httpd.conf (for some value of &quot;/www/cgi-bin&quot;).</p>
+<p>(This is not a problem with Quixote or the Quixote demo; this is a
+problem with your web server's configuration.)</p>
+</li>
+<li><p class="first">your web server was unable to execute the script.  Make sure
+its permissions are correct:</p>
+<pre class="literal-block">
+chmod 755 /www/cgi-bin/demo.cgi
+</pre>
+<p>(This shouldn't happen if you installed demo.cgi with <tt class="literal"><span class="pre">cp</span> <span class="pre">-p</span></tt> as
+illustrated above.)</p>
+</li>
+<li><p class="first">demo.cgi started, but was unable to import the Quixote modules.
+In this case, there should be a short Python traceback in your web
+server's error log ending with a message like</p>
+<pre class="literal-block">
+ImportError: No module named quixote
+</pre>
+<p>Remember, just because you can &quot;import quixote&quot; in a Python
+interpreter doesn't mean the user that runs CGI scripts (usually
+&quot;nobody&quot;) can.  You might have installed Quixote in a non-standard
+location, in which case you should either install it in the standard
+location (your Python interpreter's &quot;site-packages&quot; directory) or
+instruct your web server to set the PYTHONPATH environment variable.
+Or you might be using the wrong Python interpreter -- check the <tt class="literal"><span class="pre">#!</span></tt>
+line of demo.cgi.</p>
+</li>
+<li><p class="first">demo.cgi started and imported Quixote, but was unable to read its
+config file.  There should be a short Python traceback in your web
+server's error log ending with a message like</p>
+<pre class="literal-block">
+IOError: [Errno 2] No such file or directory: 'demo.conf'
+</pre>
+<p>in this case.</p>
+<p>Make sure you copied demo.conf to the same directory as demo.cgi,
+and make sure it is readable:</p>
+<pre class="literal-block">
+chmod 644 /www/cgi-bin/demo.conf
+</pre>
+<p>(This shouldn't happen if you install demo.conf with <tt class="literal"><span class="pre">cp</span> <span class="pre">-p</span></tt> as
+illustrated above.)</p>
+</li>
+</ul>
+</div>
+<div class="section" id="running-the-demo-indirectly">
+<h1><a name="running-the-demo-indirectly">Running the demo indirectly</a></h1>
+<p>One of the main tenets of Quixote's design is that, in a web
+application, the URL is part of the user interface.  We consider it
+undesirable to expose implementation details -- such as
+&quot;/cgi-bin/demo.cgi&quot; -- to users.  That sort of thing should be tucked
+away out of sight.  Depending on your web server, this should be easy to
+do with a simple tweak to its configuration.</p>
+<p>For example, say you want the &quot;/qdemo&quot; URL to be the location of the
+Quixote demo.  If you're using Apache with the rewrite engine loaded and
+enabled, all you need to do is add this to your httpd.conf:</p>
+<pre class="literal-block">
+RewriteRule ^/qdemo(/.*) /www/cgi-bin/demo.cgi$1 [last]
+</pre>
+<p>With this rule in effect (don't forget to restart your server!),
+accesses to &quot;/qdemo/&quot; are the same as accesses to &quot;/cgi-bin/demo.cgi/&quot; --
+except they're a lot easier for the user to understand and don't expose
+implementation details of your application.</p>
+<p>Try it out.  In your web browser, visit <tt class="literal"><span class="pre">http://localhost/qdemo/</span></tt>.</p>
+<p>You should get exactly the same page as you got visiting
+&quot;/cgi-bin/demo.cgi/&quot; earlier, and all the links should work exactly the
+same.</p>
+<p>You can use any URL prefix you like -- there's nothing special about
+&quot;/qdemo&quot;.</p>
+<p>One small but important detail here is &quot;/qdemo&quot; versus &quot;/qdemo/&quot;.  In
+the above configuration, requests for &quot;/qdemo&quot; will fail, and requests
+for &quot;/qdemo/&quot; will succeed.  See the &quot;URL rewriting&quot; section of
+web-server.txt for details and how to fix this.</p>
+</div>
+<div class="section" id="understanding-the-demo">
+<h1><a name="understanding-the-demo">Understanding the demo</a></h1>
+<p>Now that you've gotten the demo to run successfully, let's look under
+the hood and see how it works.  Before we start following links in the
+demo (don't worry if you already have, you can't hurt anything), make
+sure you're watching all the relevant log files.  As with any web
+application, log files are essential for debugging Quixote applications.</p>
+<p>Assuming that your web server's error log is in /www/log/error_log, and
+that you haven't changed the DEBUG_LOG and ERROR_LOG settings in
+demo.conf:</p>
+<pre class="literal-block">
+$ tail -f /www/log/error_log &amp; \
+  tail -f /tmp/quixote-demo-debug.log &amp; \
+  tail -f /tmp/quixote-demo-error.log 
+</pre>
+<p>(Note that recent versions of GNU tail let you tail multiple files with
+the same command.  Cool!)</p>
+</div>
+<div class="section" id="lesson-1-the-top-page">
+<h1><a name="lesson-1-the-top-page">Lesson 1: the top page</a></h1>
+<p>Reload the top of the demo, presumably <tt class="literal"><span class="pre">http://localhost/qdemo/</span></tt>.  You
+should see &quot;debug message from the index page&quot; in the debug log file.</p>
+<p>Where is this message coming from?  To find out, we need to delve into
+the source code for the demo.  Load up demo/__init__.py and let's take a
+look.  In the process, we'll learn how to explore a Quixote application
+and find the source code that corresponds to a given URL.</p>
+<p>First, why are we loading demo/__init__.py?  Because that's where some
+of the names in the &quot;quixote.demo&quot; namespace are defined, and it's where
+the list of names that may be &quot;exported&quot; by Quixote from this namespace
+to the web is given.  Recall that under Quixote, every URL boils down to
+a callable Python object -- usually a function or method.  The root of
+this application is a Python package (&quot;quixote.demo&quot;), which is just a
+special kind of module.  But modules aren't callable -- so what does the
+&quot;/qdemo/&quot; URL boil down to?  That's what <tt class="literal"><span class="pre">_q_index()</span></tt> is for -- you
+can define a special function that is called by default when Quixote
+resolves a URL to a namespace rather than a callable.  That is,
+&quot;/qdemo/&quot; resolves to the &quot;quixote.demo&quot; package; a package is a
+namespace, so it can't be called; therefore Quixote looks for a function
+called <tt class="literal"><span class="pre">_q_index()</span></tt> in that namespace and calls it.</p>
+<p>In this case, <tt class="literal"><span class="pre">_q_index()</span></tt> is not defined in demo/__init__.py -- but
+it is imported there from the quixote.demo.pages module.  This is
+actually a PTL module -- demo/pages.py does not exist, but
+demo/pages.ptl does.  So load it up and take a look:</p>
+<pre class="literal-block">
+def _q_index [plain] (request):
+    print &quot;debug message from the index page&quot;
+    &quot;&quot;&quot;
+    &lt;html&gt;
+    &lt;head&gt;&lt;title&gt;Quixote Demo&lt;/title&gt;&lt;/head&gt;
+    &lt;body&gt;
+    &lt;h1&gt;Hello, world!&lt;/h1&gt;
+    [...]
+    &lt;/body&gt;
+    &lt;/html&gt;
+    &quot;&quot;&quot;
+</pre>
+<p>A-ha!  There's the PTL code that generates the &quot;Quixote Demo&quot; page.
+This <tt class="literal"><span class="pre">_q_index()</span></tt> template is quite simple PTL -- it's mostly an HTML
+document with a single debug print thrown in to demonstrate Quixote's
+debug logging facility.</p>
+<p>Outcome of lesson 1:</p>
+<ul class="simple">
+<li>a URL maps to either a namespace (package, module, class instance) 
+or a callable (function, method, PTL template)</li>
+<li>if a URL maps to a namespace, Quixote looks for a callable 
+<tt class="literal"><span class="pre">_q_index()</span></tt> in that namespace and calls it</li>
+<li><tt class="literal"><span class="pre">_q_index()</span></tt> doesn't have to be explicitly exported by your 
+namespace; if it exists, it will be used</li>
+<li>anything your application prints to standard output goes to
+Quixote's debug log.  (If you didn't specify a debug log in
+your config file, debug messages are discarded.)</li>
+</ul>
+</div>
+<div class="section" id="lesson-2-a-link-to-a-simple-document">
+<h1><a name="lesson-2-a-link-to-a-simple-document">Lesson 2: a link to a simple document</a></h1>
+<p>The first two links in the &quot;Quixote Demo&quot; page are quite simple.  Each
+one is handled by a Python function defined in the &quot;quixote.demo&quot;
+namespace, i.e. in demo/__init__.py.  For example, following the
+&quot;simple&quot; link is equivalent to calling the <tt class="literal"><span class="pre">simple()</span></tt> function in
+&quot;quixote.demo&quot;.  Let's take a look at that function:</p>
+<pre class="literal-block">
+def simple (request):
+    request.response.set_content_type(&quot;text/plain&quot;)
+    return &quot;This is the Python function 'quixote.demo.simple'.\n&quot;
+</pre>
+<p>Note that this could equivalently be coded in PTL:</p>
+<pre class="literal-block">
+def simple [plain] (request):
+    request.response.set_content_type(&quot;text/plain&quot;)
+    &quot;This is the Python function 'quixote.demo.simple'.\n&quot;
+</pre>
+<p>...but for such a simple document, why bother?</p>
+<p>Since this function doesn't generate an HTML document, it would be
+misleading for the HTTP response that Quixote generates to claim a
+&quot;Content-type&quot; of &quot;text/html&quot;.  That is the default for Quixote's HTTP
+responses, however, since most HTTP responses are indeed HTML documents.
+Therefore, if the content you're returning is anything other than an
+HTML document, you should set the &quot;Content-type&quot; header on the HTTP
+response.</p>
+<p>This brings up a larger issue: request and response objects.  Quixote
+includes two classes, HTTPRequest and HTTPResponse, to encapsulate every
+HTTP request and its accompanying response.  Whenever Quixote resolves a
+URL to a callable and calls it, it passes precisely one argument: an
+HTTPRequest object.</p>
+<p>The HTTPRequest object includes (almost) everything you might want to
+know about the HTTP request that caused Quixote to be invoked and to
+call a particular function, method, or PTL template.  You have access to
+CGI environment variables, HTML form variables (parsed and
+ready-to-use), and HTTP cookies.  Finally, the HTTPRequest object also
+includes an HTTPResponse object -- after all, every request implies a
+response.  You can set the response status, set response headers, set
+cookies, or force a redirect using the HTTPResponse object.</p>
+<p>Note that it's not enough that the <tt class="literal"><span class="pre">simple()</span></tt> function merely exists.
+If that were the case, then overly-curious users or attackers could
+craft URLs that point to any Python function in any module under your
+application's root namespace, potentially causing all sorts of havoc.
+You need to explicitly declare which names are exported from your
+application to the web, using the <tt class="literal"><span class="pre">_q_exports</span></tt> variable.  For example,
+demo/__init__.py has this export list:</p>
+<pre class="literal-block">
+_q_exports = [&quot;simple&quot;, &quot;error&quot;]
+</pre>
+<p>This means that only these two names are explicitly exported by the
+Quixote demo.  (The empty string is implicitly exported from a namespace
+if a <tt class="literal"><span class="pre">_q_index()</span></tt> callable exists there -- thus &quot;/qdemo/&quot; is handled
+by <tt class="literal"><span class="pre">_q_index()</span></tt> in the &quot;quixote.demo&quot; namespace.  Arbitrary names may
+be implicitly exported using a <tt class="literal"><span class="pre">_q_lookup()</span></tt> function; see Lesson 4
+below.)</p>
+</div>
+<div class="section" id="lesson-3-error-handling">
+<h1><a name="lesson-3-error-handling">Lesson 3: error-handling</a></h1>
+<p>The next link in the &quot;Quixote Demo&quot; page is to the &quot;error&quot; document,
+which is handled by the <tt class="literal"><span class="pre">error()</span></tt> function in demo/__init__.py.  All
+this function does is raise an exception:</p>
+<pre class="literal-block">
+def error (request):
+    raise ValueError, &quot;this is a Python exception&quot;
+</pre>
+<p>Follow the link, and you should see a Python traceback followed by a
+dump of the CGI environment for this request (along with other request
+data, such as a list of cookies).</p>
+<p>This is extremely useful when developing, testing, and debugging.  In a
+production environment, though, it reveals way too much about your
+implementation to hapless users who should happen to hit an error, and
+it also reveals internal details to attackers who might use it to crack
+your site.  (It's just as easy to write an insecure web application with
+Quixote as with any other tool.)</p>
+<p>Thus, Quixote offers the <tt class="literal"><span class="pre">DISPLAY_EXCEPTIONS</span></tt> config variable.  This
+is false by default, but the demo.conf file enables it.  To see what
+happens with <tt class="literal"><span class="pre">DISPLAY_EXCEPTIONS</span></tt> off, edit demo.conf and reload the
+&quot;error&quot; page.  You should see a bland, generic error message that
+reveals very little about your implementation.  (This error page is
+deliberately very similar, but not identical, to Apache's &quot;Internal
+Server Error&quot; page.)</p>
+<p>Unhandled exceptions raised by application code (aka &quot;application bugs&quot;)
+are only one kind of error you're likely to encounter when developing a
+Quixote application.  The other ones are:</p>
+<ul class="simple">
+<li>driver script crashes or doesn't run (eg. can't import quixote
+modules, can't load config file).  This is covered under
+&quot;Running the demo directly&quot; above</li>
+<li>publishing errors, such as a request for &quot;/simpel&quot; that should
+have been &quot;/simple&quot;, or a request for a resource that exists but is
+denied to the current user.  Quixote has a family of exception
+classes for dealing with these; such exceptions may be raised by
+Quixote itself or by your application.  They are usually handled by
+Quixote and turned into HTTP error responses (4xx status code),
+but it's possible for your application to define a special handler 
+for such exceptions.</li>
+<li>bugs in Quixote itself; hopefully this won't happen, but you
+never know.  These usually look a lot like problems in the driver
+script: the script crashes and prints a traceback to stderr, which
+most likely winds up in your web server's error log.  The length of
+the traceback is generally a clue as to whether there's a problem
+with your driver script or a bug in Quixote.</li>
+</ul>
+<p>Publishing errors result in a 4xx HTTP response code, and can be
+entirely handled by Quixote -- that is, your web server just returns
+the HTTP response that Quixote prepares.  It's also possible to write
+a <tt class="literal"><span class="pre">_q_exception_handler()</span></tt> method that will be called on triggering
+a publishing error.  This method can then provide a friendlier
+response; for example, the page might provide a link to the site map,
+or the method might look at the problematic path and try to correct
+misspellings.  The demo defines a <tt class="literal"><span class="pre">_q_exception_handler()</span></tt> in
+demo/pages.ptl.</p>
+<p>Application bugs result in a 5xx HTTP response code, and are 
+entirely handled by Quixote.  Don't get confused by the fact that
+Quixote's and Apache's &quot;Internal Server Error&quot; pages are quite similar!</p>
+<p>Driver script crashes and Quixote bugs (which are essentially the same
+thing; the main difference is who to blame) are handled by your web
+server.  (In the first case, Quixote doesn't even enter into it; in the
+second case, Quixote dies horribly and is no longer in control.)  Under
+Apache, the Python traceback resulting from the crash is written to
+Apache's error log, and a 5xx response is returned to the client with
+Apache's &quot;Internal Server Error&quot; error page.</p>
+</div>
+<div class="section" id="lesson-4-object-publishing">
+<h1><a name="lesson-4-object-publishing">Lesson 4: object publishing</a></h1>
+<p>Publishing Python callables on the web -- i.e., translating URLs to
+Python functions/methods/PTL templates and calling them to determine the
+HTTP response -- is a very powerful way of writing web applications.
+However, Quixote has one more trick up its sleeve: object publishing.
+You can translate arbitrary names to arbitrary objects which are then
+published on the web, and you can create URLs that call methods on those
+objects.</p>
+<p>This is all accomplished with the <tt class="literal"><span class="pre">_q_lookup()</span></tt> function.  Every
+namespace that Quixote encounters may have a <tt class="literal"><span class="pre">_q_lookup()</span></tt>, just like
+it may have a <tt class="literal"><span class="pre">_q_index()</span></tt>.  <tt class="literal"><span class="pre">_q_index()</span></tt> is used to handle requests for
+the empty name -- as we saw in Lesson 1, a request for &quot;/qdemo/&quot;, maps to
+the &quot;quixote.demo&quot; namespace; the empty string after the last slash
+means that Quixote will call <tt class="literal"><span class="pre">_q_index()</span></tt> in this namespace to handle
+the request.</p>
+<p><tt class="literal"><span class="pre">_q_lookup()</span></tt> is for requests that aren't handled by a Python callable
+in the namespace.  As seen in Lessons 2 and 3, requests for
+&quot;/qdemo/simple&quot; and &quot;/qdemo/error&quot; are handled by the <tt class="literal"><span class="pre">simple()</span></tt> and
+<tt class="literal"><span class="pre">error()</span></tt> functions in the &quot;quixote.demo&quot; namespace.  What if someone
+requests &quot;/qdemo/foo&quot;?  There's no function <tt class="literal"><span class="pre">foo()</span></tt> in the
+&quot;quixote.demo&quot; namespace, so normally this would be an error.
+(Specifically, it would be a publishing error: Quixote would raise
+TraversalError, which is the error used for non-existent or non-exported
+names.  Another part of Quixote then turns this into an HTTP 404
+response.)</p>
+<p>However, this particular namespace also defines a <tt class="literal"><span class="pre">_q_lookup()</span></tt>
+function.  That means that the application wants a chance to handle
+unknown names before Quixote gives up entirely.  Let's take a look at
+the implementation of <tt class="literal"><span class="pre">_q_lookup()</span></tt>:</p>
+<pre class="literal-block">
+from quixote.demo.integer_ui import IntegerUI
+[...]
+def _q_lookup(request, component):
+    return IntegerUI(request, component)
+</pre>
+<p>Pretty simple: we just construct an IntegerUI object and return it.  So
+what is IntegerUI?  Take a look in the demo/integer_ui.py file to see;
+it's just a web interface to integers.  (Normally, you would write a
+wrapper class that provides a web interface to something more
+interesting than integers.  This just demonstrates how simple an object
+published by Quixote can be.)</p>
+<p>So, what is an IntegerUI object?  From Quixote's point of view, it's
+just another namespace to publish: like modules and packages, class
+instances have attributes, some of which (methods) are callable.  In the
+case of IntegerUI, two of those attributes are <tt class="literal"><span class="pre">_q_exports</span></tt> and
+<tt class="literal"><span class="pre">_q_index</span></tt> -- every namespace published by Quixote must have an export
+list, and an index function is almost always advisable.</p>
+<p>What this means is that any name that the IntegerUI constructor accepts
+is a valid name to tack onto the &quot;/qdemo/&quot; URL.  Take a look at the
+IntegerUI constructor; you'll see that it works fine when passed
+something that can be converted to an integer (eg. &quot;12&quot; or 1.0), and
+raises Quixote's TraversalError if not.  As it happens, Quixote always
+passes in a string -- URLs are just strings, after all -- so we only
+have to worry about things like &quot;12&quot; or &quot;foo&quot;.</p>
+<p>The error case is actually easier to understand, so try to access
+<tt class="literal"><span class="pre">http://localhost/qdemo/foo/</span></tt>.  You should get an error page that
+complains about an &quot;invalid literal for int()&quot;.</p>
+<p>Now let's build a real IntegerUI object and see the results.  Follow the
+third link in the &quot;Quixote Demo&quot; page, or just go to
+<tt class="literal"><span class="pre">http://localhost/qdemo/12/</span></tt>.  You should see a web page titled &quot;The
+Number 12&quot;.</p>
+<p>This web page is generated by the <tt class="literal"><span class="pre">_q_index()</span></tt> method of IntegerUI:
+after all, you've selected a namespace (the IntegerUI object
+corresponding to the number 12) with no explicit callable, so Quixote
+falls back on the <tt class="literal"><span class="pre">_q_index()</span></tt> attribute of that namespace.</p>
+<p>IntegerUI only exports one interesting method, <tt class="literal"><span class="pre">factorial()</span></tt>.  You can
+call this method by following the &quot;factorial&quot; link, or just by accessing
+<tt class="literal"><span class="pre">http://localhost/qdemo/12/factorial</span></tt>.</p>
+<p>Remember how I said the URL is part of the user interface?  Here's a
+great example: edit the current URL to point to a different integer.  A
+fun one to try is 2147483646.  If you follow the &quot;next&quot; link, you'll get
+an OverflowError traceback (unless you're using a 64-bit Python!),
+because the web page for 2147483647 attempts to generate its own &quot;next&quot;
+link to the web page for 2147483648 -- but that fails because current
+versions of Python on 32-bit platforms can't handle regular integers
+larger than 2147483647.</p>
+<p>Now go back to the page for 2147483646 and hit the &quot;factorial&quot; link.
+Run &quot;top&quot; on the web server.  Get yourself a coffee.  Await the heat
+death of the universe.  (Actually, your browser will probably timeout
+first.)  This doesn't overflow, because the factorial() function uses
+Python long integers, which can handle any integer -- they just take a
+while to get there.  However, it illustrates another interesting
+vulnerability: an attacker could use this to launch a denial-of-service
+attack on the server running the Quixote demo.  (Hey, it's just a demo!)</p>
+<p>Rather than fix the DoS vulnerability, I decided to use it to illustrate
+another Quixote feature: if you write to stderr, the message winds up in
+the Quixote error log for this application (/tmp/quixote-demo-error.log
+by default).  The IntegerUI.factorial() method uses this to log a
+warning of an apparent denial-of-service attack:</p>
+<pre class="literal-block">
+def factorial (self, request):
+    if self.n &gt; 10000:
+        sys.stderr.write(&quot;warning: possible denial-of-service attack &quot;
+                         &quot;(request for factorial(%d))\n&quot; % self.n)
+    return &quot;%d! = %d&quot; % (self.n, fact(self.n))
+</pre>
+<p>Since the Quixote error log is where application tracebacks are
+recorded, you should be watching this log file regularly, so you would
+presumably notice these messages.</p>
+<p>In real life, you'd probably just deny such a ludicrous request.  You
+could do this by raising a Quixote publishing error.  For example:</p>
+<pre class="literal-block">
+def factorial (self, request):
+    from quixote.errors import AccessError
+    if self.n &gt; 10000:
+        raise AccessError(&quot;ridiculous request denied&quot;)
+    return &quot;%d! = %d&quot; % (self.n, fact(self.n))
+</pre>
+</div>
+<div class="section" id="lesson-5-widgets">
+<h1><a name="lesson-5-widgets">Lesson 5: widgets</a></h1>
+<p>You can't get very far writing web applications without writing forms,
+and the building blocks of web forms are generally called &quot;form
+elements&quot;: string input, checkboxes, radiobuttons, select lists, and so
+forth.  Quixote provides an abstraction for all of these form elements:
+the Widget class hierarchy.  The widget classes are explained in detail
+in widget.txt; I'm going to give a brief description of the &quot;Quixote
+Widget Demo&quot; page and the code behind it here.</p>
+<p>If you follow the &quot;widgets&quot; link from the main page, you'll see a fairly
+ordinary-looking web form -- the sort of thing you might have to fill
+out to order a pizza on-line, with the oddity that this pizza shop is
+asking for your eye colour.  (Hey, I had to demonstrate radiobuttons
+somehow!)  This form demonstrates most of HTML's basic form
+capabilities: a simple string, a password, a checkbox, a set of
+radiobuttons, a single-select list, and a multiple-select list.</p>
+<p>Whenever you implement a web form, there are two things you have to
+worry about: generating the form elements and processing the
+client-submitted form data.  There are as many ways of dividing up this
+work as there are web programmers.  (Possibly more: every time I tackle
+this problem, I seem to come up with a different way of solving it.)
+The form in the Quixote widget demo is implemented in three parts, all
+of them in demo/widgets.ptl:</p>
+<ul class="simple">
+<li><tt class="literal"><span class="pre">widgets()</span></tt> is the callable that handles the &quot;/qdemo/widgets&quot; URL.
+This template creates all the widget objects needed for the form and
+then calls either <tt class="literal"><span class="pre">render_widgets()</span></tt> or <tt class="literal"><span class="pre">process_widgets()</span></tt> as
+appropriate.</li>
+<li><tt class="literal"><span class="pre">render_widgets()</span></tt> is called by <tt class="literal"><span class="pre">widgets()</span></tt> when there is no form
+data to process, eg. on the first access to the &quot;/qdemo/widgets&quot; URL.
+It generates the form elements and returns an HTML document consisting
+of a table that lays them out in an attractive form.</li>
+<li><tt class="literal"><span class="pre">process_widgets()</span></tt> is called by <tt class="literal"><span class="pre">widgets()</span></tt> when there is form data
+to process, ie. when the form generated by <tt class="literal"><span class="pre">render_widgets()</span></tt> is
+submitted by the user.  It processes the form data, ie. it looks up
+the user-submitted form values and returns an HTML document listing
+those values.</li>
+</ul>
+<p>This division of labour works well with Quixote's widget classes, since
+you need a collection of Widget objects whether you are generating the
+form elements or processing form data.  For generating the form, we (1)
+create all the widget objects, and (2) generate an HTML document that
+includes the output of each widget object's <tt class="literal"><span class="pre">render()</span></tt> method.  (Laying
+out the form is the responsibility of render_widgets(), which is why
+it's littered with table tags.)  For processing the form, we (1) create
+all the widget objects, and (2) generate an HTML document incorporating
+the user-submitted form values.  In both cases, step (1) is handled by
+the widgets() template, which then calls either render_widgets() or
+process_widgets() for step (2).</p>
+<p>Thus, there are three things you have to understand about widget
+objects: how to create them, how to render them, and how to use them to
+parse form values.  Widget creation is the only step that's very
+interesting, since each widget class has different constructor
+arguments.  For example, here's how we create the &quot;name&quot; widget in the
+pizza shop form:</p>
+<pre class="literal-block">
+widgets['name'] = widget.StringWidget('name', size=20)
+</pre>
+<p>When rendered, this widget will produce the following HTML:</p>
+<pre class="literal-block">
+&lt;input size=&quot;20&quot; name=&quot;name&quot; type=&quot;text&quot;&gt;
+</pre>
+<p>A more complex example is the &quot;pizza size&quot; widget:</p>
+<pre class="literal-block">
+widgets['size'] = widget.SingleSelectWidget(
+    'size', value='medium',
+    allowed_values=['tiny', 'small', 'medium', 'large', 'enormous'],
+    descriptions=['Tiny (4&quot;)', 'Small (6&quot;)', 'Medium (10&quot;)',
+                  'Large (14&quot;)', 'Enormous (18&quot;)'],
+    size=5)
+</pre>
+<p>which will generate the following HTML when rendered:</p>
+<pre class="literal-block">
+&lt;select size=&quot;5&quot; name=&quot;size&quot;&gt;
+  &lt;option value=&quot;0&quot;&gt;Tiny (4&quot;)
+  &lt;option value=&quot;1&quot;&gt;Small (6&quot;)
+  &lt;option selected value=&quot;2&quot;&gt;Medium (10&quot;)
+  &lt;option value=&quot;3&quot;&gt;Large (14&quot;)
+  &lt;option value=&quot;4&quot;&gt;Enormous (18&quot;)
+&lt;/select&gt;
+</pre>
+<p>Some things you might need to know about widget creation:</p>
+<ul class="simple">
+<li>the standard widget classes are in the quixote.form.widget module;
+see widget.txt and/or the source code for the complete list</li>
+<li>every widget class constructor has exactly one required argument:
+the widget name.  This is used as the form element name
+in the generated HTML.  (Things are a bit different for compound
+widgets, but I'm not covering them in this document.)</li>
+<li>every widget class supports a number of keyword arguments that
+generally correspond to attributes of some HTML tag.  The one
+argument common to all widget classes is <tt class="literal"><span class="pre">value</span></tt>, the current
+value for this widget.</li>
+</ul>
+<p>Rendering widgets is easy: just call the render() method, passing in the
+current HTTPRequest object.  (It's currently not used by the standard
+widget classes, but could be used by derived or compound widget classes
+for context-sensitive widget rendering.)</p>
+<p>Parsing form values is just as easy: call the parse() method, again
+passing in the current HTTPRequest object.  The return value depends on
+the nature of the widget, eg.:</p>
+<ul class="simple">
+<li>StringWidget and PasswordWidget return a string</li>
+<li>CheckboxWidget returns a boolean</li>
+<li>RadiobuttonsWidget, SingleSelectWidget, and MultipleSelectWidget
+return one of the values supplied in <tt class="literal"><span class="pre">allowed_values</span></tt> -- in the
+demo these are all strings, but they can be any Python value.
+(If the client submits bogus data, the widget will return None.)</li>
+</ul>
+<p>$Id: demo.txt 21292 2003-04-08 16:48:47Z akuchlin $</p>
+</div>
+</div>
+</body>
+</html>

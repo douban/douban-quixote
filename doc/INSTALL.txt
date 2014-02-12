@@ -1,0 +1,53 @@
+Installing Quixote
+==================
+
+Best-case scenario
+------------------
+
+If you are using Python 2.2 or later, and have never installed Quixote
+with your current version of Python, you're in luck.  Just run
+
+  python setup.py install
+
+and you're done.  Proceed to the demo documentation to learn how to get
+Quixote working.
+
+If you're using an older Python, or if you're upgrading from an older
+Quixote version, read on.
+
+
+Upgrading from an older Quixote version
+---------------------------------------
+
+We strongly recommend that you remove any old Quixote version before
+installing a new one.  First, find out where your old Quixote
+installation is:
+
+  python -c "import os, quixote; print os.path.dirname(quixote.__file__)"
+
+and then remove away the reported directory.  (If the import fails, then
+you don't have an existing Quixote installation.)
+
+Then proceed as above:
+
+  python setup.py install
+
+
+Using Quixote with Python 2.0 or 2.1
+------------------------------------
+
+If you are using Python 2.0 or 2.1 then you need to install the
+``compiler`` package from the Python source distribution.  The
+``compiler`` package is for parsing Python source code and generating
+Python bytecode, and the PTL compiler is built on top of it.  With
+Python 2.0 and 2.1, this package was included in Python's source
+distribution, but not installed as part of the standard library.
+
+Assuming your Python source distribution is in ``/tmp/Python-2.1.2``::
+
+    cd /tmp/Python-2.1.2/Tools/compiler
+    python setup.py install
+
+(Obviously, you'll have to adjust this to reflect your Python version
+and where you kept the source distribution after installing Python.)
+

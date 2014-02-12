@@ -1,0 +1,114 @@
+# quixote.demo.forms
+#
+# Demonstrate the Quixote form class.
+
+__revision__ = "$Id: forms.ptl 25234 2004-09-30 17:36:19Z nascheme $"
+
+
+import time
+from quixote.form import Form
+
+class Topping:
+    def __init__(self, name, cost):
+        self.name = name
+        self.cost = cost # in cents
+
+    def __str__(self):
+        return "%s: $%.2f" % (self.name, self.cost/100.)
+
+    def __repr__(self):
+        return "<%s at %08x: %s>" % (self.__class__.__name__,
+                                     id(self), self)
+
+
+TOPPINGS = [Topping('cheese', 50),
+            Topping('pepperoni', 110),
+            Topping('green peppers', 75),
+            Topping('mushrooms', 90),
+            Topping('sausage', 100),
+            Topping('anchovies', 30),
+            Topping('onions', 25)]
+
+class FormDemo(Form):
+    def __init__(self):
+        # build form
+        Form.__init__(self)
+        self.add_widget("string", "name", title="Your Name",
+                        size=20, required=1)
+        self.add_widget("password", "password", title="Password",
+                        size=20, maxlength=20, required=1)
+        self.add_widget("checkbox", "confirm",
+                        title="Are you sure?")
+        self.add_widget("radiobuttons", "color", title="Eye color",
+                        allowed_values=['green', 'blue', 'brown', 'other'])
+        self.add_widget("single_select", "size", title="Size of pizza",
+                        value='medium',
+                        allowed_values=['tiny', 'small', 'medium', 'large',
+                                        'enormous'],
+                        descriptions=['Tiny (4")', 'Small (6")', 'Medium (10")',
+                                      'Large (14")', 'Enormous (18")'],
+                        size=1)
+        # select widgets can use any type of object, no just strings
+        self.add_widget("multiple_select", "toppings", title="Pizza Toppings",
+                        value=TOPPINGS[0],
+                        allowed_values=TOPPINGS,
+                        size=5)
+        self.add_widget('hidden', 'time', value=time.time())
+        self.add_submit_button("go", "Go!")
+
+
+    def render [html] (self, request, action_url):
+        """
+        <html>
+        <head><title>Quixote Form Demo</title></head>
+        <body>
+        <h1>Quixote Form Demo</h1>
+        """
+        Form.render(self, request, action_url)
+        """
+        </body>
+        </html>
+        """
+
+
+    def process(self, request):
+        # check data
+        form_data = Form.process(self, request)
+        if not form_data["name"]:
+            self.error["name"] = "You must provide your name."
+        if not form_data["password"]:
+            self.error["password"] = "You must provide a password."
+        return form_data
+
+
+    def action [html] (self, request, submit_button, form_data):
+        # The data has been submitted and verified.  Do something interesting
+        # with it (save it in DB, send email, etc.).  We'll just display it.
+        """
+        <html>
+        <head><title>Quixote Form Demo</title></head>
+        <body>
+        <h2>Form data:</h2>
+        <table>
+            <tr>
+              <th align=left>Name</th>
+              <th align=left>Type</th>
+              <th align=left>Value</th>
+            </tr>
+        """
+        for name, value in form_data.items():
+            '<tr>'
+            '  <td>%s</td>' % name
+            '  <td>%s</td>' % type(value).__name__
+            if value is None:
+                value = "<i>no value</i>"
+            '  <td>%s</td>' % value
+            '</tr>'
+        """
+        </table>
+        </body>
+        </html>
+        """
+
+def form_demo(request):
+    return FormDemo().handle(request)

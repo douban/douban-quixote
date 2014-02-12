@@ -1,0 +1,256 @@
+Upgrading code from older versions of Quixote
+=============================================
+
+This document lists backward-incompatible changes in Quixote, and
+explains how to update application code to work with the newer
+version.
+
+Changes from 0.6.1 to 1.0
+-------------------------
+
+Sessions
+********
+
+A leading underscore was removed from the ``Session`` attributes
+``__remote_address``, ``__creation_time``, and ``__access_time``.  If
+you have pickled ``Session`` objects you will need to upgrade them
+somehow.  Our preferred method is to write a script that unpickles each
+object, renames the attributes and then re-pickles it.
+
+
+
+Changes from 0.6 to 0.6.1
+-------------------------
+
+``_q_exception_handler`` now called if exception while traversing
+*****************************************************************
+
+``_q_exception_handler`` hooks will now be called if an exception is
+raised during the traversal process.  Quixote 0.6 had a bug that caused
+``_q_exception_handler`` hooks to only be called if an exception was
+raised after the traversal completed.
+
+
+
+Changes from 0.5 to 0.6
+-----------------------
+
+``_q_getname`` renamed to ``_q_lookup``
+***************************************
+
+The ``_q_getname`` special function was renamed to ``_q_lookup``,
+because that name gives a clearer impression of the function's
+purpose.  In 0.6, ``_q_getname`` still works but will trigger a
+warning.
+
+
+Form Framework Changes
+**********************
+
+The ``quixote.form.form`` module was changed from a .ptl file to a .py
+file.  You should delete or move the existing ``quixote/`` directory
+in ``site-packages`` before running ``setup.py``, or at least delete
+the old ``form.ptl`` and ``form.ptlc`` files.
+
+The widget and form classes in the ``quixote.form`` package now return
+``htmltext`` instances.  Applications that use forms and widgets will
+likely have to be changed to use the ``[html]`` template type to avoid
+over-escaping of HTML special characters.
+
+Also, the constructor arguments to ``SelectWidget`` and its subclasses have
+changed.  This only affects applications that use the form framework
+located in the ``quixote.form`` package.
+
+In Quixote 0.5, the ``SelectWidget`` constructor had this signature::
+
+     def __init__ (self, name, value=None,
+                   allowed_values=None,
+                   descriptions=None,
+                   size=None,
+                   sort=0):
+
+``allowed_values`` was the list of objects that the user could choose,
+and ``descriptions`` was a list of strings that would actually be
+shown to the user in the generated HTML.
+
+In Quixote 0.6, the signature has changed slightly::
+
+     def __init__ (self, name, value=None,
+                   allowed_values=None,
+                   descriptions=None,
+                   options=None,
+                   size=None,
+                   sort=0):
+
+The ``quote`` argument is gone, and the ``options`` argument has been 
+added.  If an ``options`` argument is provided, ``allowed_values`` 
+and ``descriptions`` must not be supplied.
+
+The ``options`` argument, if present, must be a list of tuples with
+1,2, or 3 elements, of the form ``(value:any, description:any,
+key:string)``.
+
+    * ``value`` is the object that will be returned if the user chooses 
+      this item, and must always be supplied.
+  
+    * ``description`` is a string or htmltext instance which will be
+      shown to the user in the generated HTML.  It will be passed
+      through the htmlescape() functions, so for an ordinary string
+      special characters such as '&' will be converted to '&amp;'.
+      htmltext instances will be left as they are.
+
+    * If supplied, ``key`` will be used in the value attribute 
+      of the option element (``<option value="...">``).  
+      If not supplied, keys will be generated; ``value`` is checked for a 
+      ``_p_oid`` attribute and if present, that string is used; 
+      otherwise the description is used.
+
+In the common case, most applications won't have to change anything,
+though the ordering of selection items may change due to the
+difference in how keys are generated.
+
+
+File Upload Changes
+*******************
+
+Quixote 0.6 introduces new support for HTTP upload requests.  Any HTTP
+request with a Content-Type of "multipart/form-data" -- which is
+generally only used for uploads -- is now represented by
+HTTPUploadRequest, a subclass of HTTPRequest, and the uploaded files
+themselves are represented by Upload objects.  
+
+Whenever an HTTP request has a Content-Type of "multipart/form-data",
+an instance of HTTPUploadRequest is created instead of HTTPRequest.
+Some of the fields in the request are presumably uploaded files and
+might be quite large, so HTTPUploadRequest will read all of the fields
+supplied in the request body and write them out to temporary files;
+the temporary files are written in the directory specified by the
+UPLOAD_DIR configuration variable.
+
+Once the temporary files have been written, the HTTPUploadRequest
+object is passed to a function or PTL template, just like an ordinary
+request.  The difference between HTTPRequest and HTTPUploadRequest 
+is that all of the form variables are represented as Upload objects.
+Upload objects have three attributes:
+
+``orig_filename``
+  the filename supplied by the browser.
+``base_filename``
+  a stripped-down version of orig_filename with unsafe characters removed.
+  This could be used when writing uploaded data to a permanent location.
+``tmp_filename``
+  the path of the temporary file containing the uploaded data for this field.
+
+Consult upload.txt for more information about handling file uploads.
+ 
+
+Refactored `Publisher` Class
+****************************
+
+Various methods in the `Publisher` class were rearranged.  If your
+application subclasses Publisher, you may need to change your code
+accordingly.
+
+  * ``parse_request()`` no longer creates the HTTPRequest object; 
+    instead a new method, ``create_request()``,  handles this, 
+    and can be overridden as required.
+
+    As a result, the method signature has changed from 
+    ``parse_request(stdin, env)`` to ``parse_request(request)``.
+
+  * The ``Publisher.publish()`` method now catches exceptions raised 
+    by ``parse_request()``.
+
+
+Changes from 0.4 to 0.5
+-----------------------
+
+Session Management Changes
+**************************
+
+The Quixote session management interface underwent lots of change and
+cleanup with Quixote 0.5.  It was previously undocumented (apart from
+docstrings in the code), so we thought that this was a good opportunity
+to clean up the interface.  Nevertheless, those brave souls who got
+session management working just by reading the code are in for a bit of
+suffering; this brief note should help clarify things.  The definitive
+documentation for session management is session-mgmt.txt -- you should
+start there.
+
+
+Attribute renamings and pickled objects
++++++++++++++++++++++++++++++++++++++++
+
+Most attributes of the standard Session class were made private in order
+to reduce collisions with subclasses.  The downside is that pickled
+Session objects will break.  You might want to (temporarily) modify
+session.py and add this method to Session::
+
+    def __setstate__ (self, dict):
+        # Update for attribute renamings made in rev. 1.51.2.3
+        # (between Quixote 0.4.7 and 0.5).
+        self.__dict__.update(dict)
+        if hasattr(self, 'remote_address'):
+            self.__remote_address = self.remote_address
+            del self.remote_address
+        if hasattr(self, 'creation_time'):
+            self.__creation_time = self.creation_time
+            del self.creation_time
+        if hasattr(self, 'access_time'):
+            self.__access_time = self.access_time
+            del self.access_time
+        if hasattr(self, 'form_tokens'):
+            self._form_tokens = self.form_tokens
+            del self.form_tokens
+
+However, if your sessions were pickled via ZODB, this may not work.  (It
+didn't work for us.)  In that case, you'll have to add something like
+this to your class that inherits from both ZODB's Persistent and
+Quixote's Session::
+
+    def __setstate__ (self, dict):
+        # Blechhh!  This doesn't work if I put it in Quixote's
+        # session.py, so I have to second-guess how Python
+        # treats "__" attribute names.
+        self.__dict__.update(dict)
+        if hasattr(self, 'remote_address'):
+            self._Session__remote_address = self.remote_address
+            del self.remote_address
+        if hasattr(self, 'creation_time'):
+            self._Session__creation_time = self.creation_time
+            del self.creation_time
+        if hasattr(self, 'access_time'):
+            self._Session__access_time = self.access_time
+            del self.access_time
+        if hasattr(self, 'form_tokens'):
+            self._form_tokens = self.form_tokens
+            del self.form_tokens
+
+It's not pretty, but it worked for us.
+
+
+Cookie domains and paths
+++++++++++++++++++++++++
+
+The session cookie config variables -- ``COOKIE_NAME``,
+``COOKIE_DOMAIN``, and ``COOKIE_PATH`` -- have been renamed to
+``SESSION_COOKIE_*`` for clarity.
+
+If you previously set the config variable ``COOKIE_DOMAIN`` to the name
+of your server, this is most likely no longer necessary -- it's now fine
+to leave ``SESSION_COOKIE_DOMAIN`` unset (ie. ``None``), which
+ultimately means browsers will only include the session cookie in
+requests to the same server that sent it to them in the first place.
+
+If you previously set ``COOKIE_PATH``, then you should probably preserve
+your setting as ``SESSION_COOKIE_PATH``.  The default of ``None`` means
+that browsers will only send session cookies with requests for URIs
+under the URI that originally resulted in the session cookie being sent.
+See session-mgmt.txt and RFCs 2109 and 2965.
+
+If you previously set ``COOKIE_NAME``, change it to
+``SESSION_COOKIE_NAME``.
+
+
+$Id: upgrading.txt 23961 2004-04-12 15:51:38Z nascheme $
+

@@ -1,0 +1,129 @@
+# quixote.demo.widgets
+#
+# Demonstrate the Quixote widget classes.
+
+__revision__ = "$Id: widgets.ptl 23532 2004-02-20 22:38:57Z dbinger $"
+
+
+import time
+from quixote.form import widget
+
+
+def widgets(request):
+
+    # Whether we are generating or processing the form with these
+    # widgets, we need all the widget objects -- so create them now.
+    widgets = {}
+    widgets['name'] = widget.StringWidget('name', size=20)
+    widgets['password'] = widget.PasswordWidget(
+        'password', size=20, maxlength=20)
+    widgets['confirm'] = widget.CheckboxWidget('confirm')
+    widgets['colour'] = widget.RadiobuttonsWidget(
+        'colour', allowed_values=['green', 'blue', 'brown', 'other'])
+    widgets['size'] = widget.SingleSelectWidget(
+        'size', value='medium',
+        allowed_values=['tiny', 'small', 'medium', 'large', 'enormous'],
+        descriptions=['Tiny (4")', 'Small (6")', 'Medium (10")',
+                      'Large (14")', 'Enormous (18")'])
+    widgets['toppings'] = widget.MultipleSelectWidget(
+        'toppings', value=['cheese'],
+        allowed_values=['cheese', 'pepperoni', 'green peppers', 'mushrooms',
+                        'sausage', 'anchovies', 'onions'],
+        size=5)
+    widgets['time'] = widget.HiddenWidget('time', value=time.time())
+
+    if request.form:
+        # If we have some form data, then we're being invoked to process
+        # the form; call process_widgets() to do the real work.  We only
+        # handle it in this page to conserve urls: the "widget" url both
+        # generates the form and processes it, and behaves very
+        # differently depending on whether there are form variables
+        # present when it is invoked.
+        return process_widgets(request, widgets)
+    else:
+        # No form data, so generate the form from scratch.  When the
+        # user submits it, we'll come back to this page, but
+        # request.form won't be empty that time -- so we'll call
+        # process_widgets() instead.
+        return render_widgets(request, widgets)
+
+
+def render_widgets [html] (request, widgets):
+    """\
+<html>
+<head><title>Quixote Widget Demo</title></head>
+<body>
+<h1>Quixote Widget Demo</h1>
+"""
+
+    """\
+<form method="POST" action="widgets">
+<table>
+"""
+    row_fmt = '''\
+  <tr>
+    <th align="left">%s</th>
+    <td colspan=2>%s</td>
+  </tr>
+'''
+    row_fmt % ("Your name", widgets['name'].render(request))
+    row_fmt % ("Password", widgets['password'].render(request))
+    row_fmt % ("Are you sure?", widgets['confirm'].render(request))
+    row_fmt % ("Eye colour", widgets['colour'].render(request))
+
+    '''\
+  <tr>
+    <th align="left" valign="top">Select a<br>size of pizza</th>
+    <td valign="top">%s</td>
+    <th align="left" valign="top">And some<br>pizza toppings</th>
+    <td valign="top">%s</td>
+  </tr>
+''' % (widgets['size'].render(request),
+       widgets['toppings'].render(request))
+
+    widgets['time'].render(request)
+
+    '</table>\n'
+    widget.SubmitButtonWidget(value="Submit").render(request)
+    '''\
+</form>
+</body>
+</html>
+'''
+
+def process_widgets [html] (request, widgets):
+    """\
+<html>
+<head><title>Quixote Widget Demo</title></head>
+<body>
+<h2>You entered the following values:</h2>
+<table>
+"""
+
+    row_fmt = '  <tr><th align="left">%s</th><td>%s</td></tr>\n'
+    fallback = '<i>nothing</i>'
+    row_fmt % ("name",
+               widgets['name'].parse(request) or fallback)
+    row_fmt % ("password",
+               widgets['password'].parse(request) or fallback)
+    row_fmt % ("confirmation",
+               widgets['confirm'].parse(request))
+    row_fmt % ("eye colour",
+               widgets['colour'].parse(request) or fallback)
+    row_fmt % ("pizza size",
+               widgets['size'].parse(request) or fallback)
+    toppings = widgets['toppings'].parse(request)
+    row_fmt % ("pizza toppings",
+               toppings and (", ".join(toppings)) or fallback)
+
+    '</table>\n'
+
+    form_time = float(widgets['time'].parse(request))
+    now = time.time()
+    ("<p>It took you %.1f sec to fill out and submit the form</p>\n"
+     % (now - form_time))
+
+    """\
+</body>
+</html>
+"""

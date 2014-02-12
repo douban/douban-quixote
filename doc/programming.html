@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>Quixote Programming Overview</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="quixote-programming-overview">
+<h1 class="title">Quixote Programming Overview</h1>
+<p>This document explains how a Quixote application is structured.  Be sure
+you have read the &quot;Understanding the demo&quot; section of demo.txt first --
+this explains a lot of Quixote fundamentals.</p>
+<p>There are three components to a Quixote application:</p>
+<ol class="arabic">
+<li><p class="first">A driver script, usually a CGI or FastCGI script.  This is
+the interface between your web server (eg., Apache) and the bulk of
+your application code.</p>
+<p>The driver script is responsible for creating a Quixote publisher
+customized for your application and invoking its publishing loop.</p>
+</li>
+<li><p class="first">A configuration file.  This file specifies various features of the
+Publisher class, such as how errors are handled, the paths of
+various log files, and various other things.  Read through
+quixote/config.py for the full list of configuration settings.</p>
+<p>The most important configuration parameters are:</p>
+<blockquote>
+<dl>
+<dt><tt class="literal"><span class="pre">ERROR_EMAIL</span></tt></dt>
+<dd><p class="first last">e-mail address to which errors will be mailed</p>
+</dd>
+<dt><tt class="literal"><span class="pre">ERROR_LOG</span></tt></dt>
+<dd><p class="first last">file to which errors will be logged</p>
+</dd>
+</dl>
+</blockquote>
+<p>For development/debugging, you should also set <tt class="literal"><span class="pre">DISPLAY_EXCEPTIONS</span></tt>
+true and <tt class="literal"><span class="pre">SECURE_ERRORS</span></tt> false; the defaults are the reverse, to
+favour security over convenience.</p>
+</li>
+<li><p class="first">Finally, the bulk of the code will be in a Python package or
+module, called the root namespace.  The Quixote publisher will be set
+up to start traversing at the root namespace.</p>
+</li>
+</ol>
+<div class="section" id="driver-script">
+<h1><a name="driver-script">Driver script</a></h1>
+<p>The driver script is the interface between your web server and Quixote's
+&quot;publishing loop&quot;, which in turn is the gateway to your application
+code.  Thus, there are two things that your Quixote driver script must
+do:</p>
+<ul class="simple">
+<li>create a Quixote publisher -- that is, an instance of the Publisher
+class provided by the quixote.publish module -- and customize it for
+your application</li>
+<li>invoke the Quixote publishing loop by calling the 'publish_cgi()'
+method of the publisher</li>
+</ul>
+<p>The publisher is responsible for translating URLs to Python objects and
+calling the appropriate function, method, or PTL template to retrieve
+the information and/or carry out the action requested by the URL.</p>
+<p>The most important application-specific customization done by the driver
+script is to set the root namespace of your application.  Broadly
+speaking, a namespace is any Python object with attributes.  The most
+common namespaces are modules, packages, and class instances.  The root
+namespace of a Quixote application is usually a Python package, although
+for a small application it could be a regular module.</p>
+<p>The driver script can be very simple; for example, here is a
+trimmed-down version of demo.cgi, the driver script for the Quixote
+demo:</p>
+<pre class="literal-block">
+from quixote import enable_ptl, Publisher
+enable_ptl()
+app = Publisher(&quot;quixote.demo&quot;)
+app.setup_logs()
+app.publish_cgi()
+</pre>
+<p>(Whether you install this as <tt class="literal"><span class="pre">demo.cgi</span></tt>, <tt class="literal"><span class="pre">demo.fcgi</span></tt>, <tt class="literal"><span class="pre">demo.py</span></tt>,
+or whatever is up to you and your web server.)</p>
+<p>That's almost the simplest possible case -- there's no
+application-specific configuration info apart from the root namespace.
+(The only way to make this simpler would be to remove the
+<tt class="literal"><span class="pre">enable_ptl()</span></tt> and <tt class="literal"><span class="pre">setup_logs()</span></tt> calls.  The former would remove
+the ability to import PTL modules, which is at least half the fun with
+Quixote; the latter would disable Quixote's debug and error logging,
+which is very useful.)</p>
+<p>Here's a slightly more elaborate example, for a hypothetical database of
+books:</p>
+<pre class="literal-block">
+from quixote import enable_ptl, Publisher
+from quixote.config import Config
+
+# Install the PTL import hook, so we can use PTL modules in this app
+enable_ptl()
+
+# Create a Publisher instance with the default configuration.
+pub = Publisher('books')
+
+# Read a config file to override some default values.
+pub.read_config('/www/conf/books.conf')
+
+# Setup error and debug logging (do this after read_config(), so
+# the settings in /www/conf/books.conf have an effect!).
+pub.setup_logs()
+
+# Enter the publishing main loop
+pub.publish_cgi()
+</pre>
+<p>The application code is kept in a package named simply 'books' in this
+example, so its name is provided as the root namespace when creating the
+Publisher instance.</p>
+<p>The SessionPublisher class in quixote.publish can also be used; it
+provides session tracking.  The changes required to use
+SessionPublisher would be:</p>
+<pre class="literal-block">
+...
+from quixote.publish import SessionPublisher
+...
+pub = SessionPublisher(PACKAGE_NAME)
+...
+</pre>
+<p>For details on session management, see session-mgmt.txt.</p>
+<p>Getting the driver script to actually run is between you and your web
+server.  See the web-server.txt document for help, especially with
+Apache (which is the only web server we currently know anything about).</p>
+</div>
+<div class="section" id="configuration-file">
+<h1><a name="configuration-file">Configuration file</a></h1>
+<p>In the <tt class="literal"><span class="pre">books.cgi</span></tt> driver script, configuration information is read
+from a file by this line:</p>
+<pre class="literal-block">
+pub.read_config('/www/conf/books.conf')
+</pre>
+<p>You should never edit the default values in quixote/config.py, because
+your edits will be lost if you upgrade to a newer Quixote version.  You
+should certainly read it, though, to understand what all the
+configuration variables are.</p>
+<p>The configuration file contains Python code, which is then evaluated
+using Python's built-in function <tt class="literal"><span class="pre">execfile()</span></tt>.  Since it's Python code,
+it's easy to set config variables:</p>
+<pre class="literal-block">
+ACCESS_LOG = &quot;/www/log/access/books.log&quot; 
+DEBUG_LOG = &quot;/www/log/books-debug.log&quot;
+ERROR_LOG = &quot;/www/log/books-error.log&quot;
+</pre>
+<p>You can also execute arbitrary Python code to figure out what the
+variables should be.  The following example changes some settings to
+be more convenient for a developer when the <tt class="literal"><span class="pre">WEB_MODE</span></tt> environment
+variable is the string <tt class="literal"><span class="pre">DEVEL</span></tt>:</p>
+<pre class="literal-block">
+web_mode = os.environ[&quot;WEB_MODE&quot;]
+if web_mode == &quot;DEVEL&quot;:
+    DISPLAY_EXCEPTIONS = 1
+    SECURE_ERRORS = 0
+    RUN_ONCE = 1
+elif web_mode in (&quot;STAGING&quot;, &quot;LIVE&quot;):
+    DISPLAY_EXCEPTIONS = 0
+    SECURE_ERRORS = 1
+    RUN_ONCE = 0
+else:
+    raise RuntimeError, &quot;unknown server mode: %s&quot; % web_mode
+</pre>
+<p>At the MEMS Exchange, we use this flexibility to display tracebacks in
+<tt class="literal"><span class="pre">DEVEL</span></tt> mode, to redirect generated e-mails to a staging address in
+<tt class="literal"><span class="pre">STAGING</span></tt> mode, and to enable all features in <tt class="literal"><span class="pre">LIVE</span></tt> mode.</p>
+</div>
+<div class="section" id="logging">
+<h1><a name="logging">Logging</a></h1>
+<p>Every Quixote application can have up to three log files, each of
+which is selected by a different configuration variable:</p>
+<ul class="simple">
+<li>access log (<tt class="literal"><span class="pre">ACCESS_LOG</span></tt>)</li>
+<li>error log (<tt class="literal"><span class="pre">ERROR_LOG</span></tt>)</li>
+<li>debug log (<tt class="literal"><span class="pre">DEBUG_LOG</span></tt>)</li>
+</ul>
+<p>If you want logging to work, you must call <tt class="literal"><span class="pre">setup_logs()</span></tt> on your
+Publisher object after creating it and reading any application-specific
+config file.  (This only applies for CGI/FastCGI driver scripts, where
+you are responsible for creating the Publisher object.  With mod_python
+under Apache, it's taken care of for you.)</p>
+<p>Quixote writes one (rather long) line to the access log for each request
+it handles; we have split that line up here to make it easier to read:</p>
+<pre class="literal-block">
+127.0.0.1 - 2001-10-15 09:48:43
+  2504 &quot;GET /catalog/ HTTP/1.1&quot;
+  200 'Opera/6.0 (Linux; U)' 0.10sec
+</pre>
+<p>This line consists of:</p>
+<ul class="simple">
+<li>client IP address</li>
+<li>current user (according to Quixote session management mechanism,
+so this will be &quot;-&quot; unless you're using a session manager that
+does authentication)</li>
+<li>date and time of request in local timezone, as YYYY-MM-DD hh:mm:ss</li>
+<li>process ID of the process serving the request (eg. your CGI/FastCGI
+driver script)</li>
+<li>the HTTP request line (request method, URI, and protocol)</li>
+<li>response status code</li>
+<li>HTTP user agent string (specifically, this is
+<tt class="literal"><span class="pre">repr(os.environ.get('HTTP_USER_AGENT',</span> <span class="pre">''))</span></tt>)</li>
+<li>time to complete the request</li>
+</ul>
+<p>If no access log is configured (ie., <tt class="literal"><span class="pre">ACCESS_LOG</span></tt> is <tt class="literal"><span class="pre">None</span></tt>), then
+Quixote will not do any access logging.</p>
+<p>The error log is used for two purposes:</p>
+<ul class="simple">
+<li>all application output to standard error (<tt class="literal"><span class="pre">sys.stderr</span></tt>) goes to
+Quixote's error log</li>
+<li>all application tracebacks will be written to Quixote's error log</li>
+</ul>
+<p>If no error log is configured (with <tt class="literal"><span class="pre">ERROR_LOG</span></tt>), then both types of
+messages will be written to the stderr supplied to Quixote for this
+request by your web server.  At least for CGI/FastCGI scripts under
+Apache, this winds up in Apache's error log.</p>
+<p>The debug log is where any application output to stdout goes.  Thus, you
+can just sprinkle <tt class="literal"><span class="pre">print</span></tt> statements into your application for
+debugging; if you have configured a debug log, those print statements
+will wind up there.  If you don't configure a debug log, they go to the
+bit bucket (<tt class="literal"><span class="pre">/dev/null</span></tt> on Unix, <tt class="literal"><span class="pre">NUL</span></tt> on Windows).</p>
+</div>
+<div class="section" id="application-code">
+<h1><a name="application-code">Application code</a></h1>
+<p>Finally, we reach the most complicated part of a Quixote application.
+However, thanks to Quixote's design, everything you've ever learned
+about designing and writing Python code is applicable, so there are no
+new hoops to jump through.  The only new language to learn is PTL, which
+is simply Python with a novel way of generating function return values
+-- see PTL.txt for details.</p>
+<p>An application's code lives in a Python package that contains both .py
+and .ptl files.  Complicated logic should be in .py files, while .ptl
+files, ideally, should contain only the logic needed to render your Web
+interface and basic objects as HTML.  As long as your driver script
+calls <tt class="literal"><span class="pre">enable_ptl()</span></tt>, you can import PTL modules (.ptl files) just as
+if they were Python modules.</p>
+<p>Quixote's publisher will start at the root of this package, and will
+treat the rest of the URL as a path into the package's contents.  Here
+are some examples, assuming that the <tt class="literal"><span class="pre">URL_PREFIX</span></tt> is <tt class="literal"><span class="pre">&quot;/q&quot;</span></tt>, your
+web server is setup to rewrite <tt class="literal"><span class="pre">/q</span></tt> requests as calls to (eg.)
+<tt class="literal"><span class="pre">/www/cgi-bin/books.cgi</span></tt>, and the root package for your application is
+'books':</p>
+<pre class="literal-block">
+http://.../q/         call         books._q_index()
+http://.../q/other    call         books.other(), if books.other
+                                   is callable (eg. a function or
+                                   method)
+http://.../q/other    redirect to  /q/other/, if books.other is a
+                                   namespace (eg. a module or sub-package)
+http://.../q/other/   call         books.other._q_index(), if books.other
+                                   is a namespace
+</pre>
+<p>One of Quixote's design principles is &quot;Be explicit.&quot;  Therefore there's
+no complicated rule for remembering which functions in a module are
+public; you just have to list them all in the _q_exports variable, which
+should be a list of strings naming the public functions.  You don't need
+to list the <tt class="literal"><span class="pre">_q_index()</span></tt> function as being public; that's assumed.
+Eg. if <tt class="literal"><span class="pre">foo()</span></tt> is a function to be exported (via Quixote to the web)
+from your application's namespace, you should have this somewhere in
+that namespace (ie. at module level in a module or __init__.py file):</p>
+<pre class="literal-block">
+_q_exports = ['foo']
+</pre>
+<p>At times it is desirable for URLs to contain path components that are
+not valid Python identifiers.  In these cases you can provide an
+explicit external to internal name mapping.  For example:</p>
+<pre class="literal-block">
+_q_exports = ['foo', ('stylesheet.css', 'stylesheet_css')]
+</pre>
+<p>When a function is callable from the web, it must expect a single
+parameter, which will be an instance of the HTTPRequest class.  This
+object contains everything Quixote could discover about the current HTTP
+request -- CGI environment variables, form data, cookies, etc.  When
+using SessionPublisher, request.session is a Session object for the user
+agent making the request.</p>
+<p>The function should return a string; all PTL templates return a string
+automatically.  <tt class="literal"><span class="pre">request.response</span></tt> is an HTTPResponse instance, which
+has methods for setting the content-type of the function's output,
+generating an HTTP redirect, specifying arbitrary HTTP response headers,
+and other common tasks.  (Actually, the request object also has a method
+for generating a redirect.  It's usually better to use this -- ie. code
+<tt class="literal"><span class="pre">request.redirect(...)</span></tt> because generating a redirect correctly
+requires knowledge of the request, and only the request object has that
+knowledge.  <tt class="literal"><span class="pre">request.response.redirect(...)</span></tt> only works if you supply
+an absolute URL, eg. <tt class="literal"><span class="pre">&quot;http://www.example.com/foo/bar&quot;</span></tt>.)</p>
+<p>Use</p>
+<pre class="literal-block">
+pydoc quixote.http_request
+pydoc quixote.http_response
+</pre>
+<p>to view the documentation for the HTTPRequest and HTTPResponse classes,
+or consult the source code for all the gory details.</p>
+<p>There are a few special functions that affect Quixote's 
+traversal of a URL to determine how to handle it: <tt class="literal"><span class="pre">_q_access()</span></tt>,
+<tt class="literal"><span class="pre">_q_lookup()</span></tt>, and  <tt class="literal"><span class="pre">_q_resolve()</span></tt>.</p>
+</div>
+<div class="section" id="q-access-request">
+<h1><a name="q-access-request"><tt class="literal"><span class="pre">_q_access(request)</span></tt></a></h1>
+<p>If this function is present in a module, it will be called before
+attempting to traverse any further.  It can look at the contents of
+request and decide if the traversal can continue; if not, it should
+raise quixote.errors.AccessError (or a subclass), and Quixote will
+return a 403 (&quot;forbidden&quot;) HTTP status code.  The return value is
+ignored if <tt class="literal"><span class="pre">_q_access()</span></tt> doesn't raise an exception.</p>
+<p>For example, in the MEMS Exchange code, we have some sets of pages that
+are only accessible to signed-in users of a certain type.  The
+<tt class="literal"><span class="pre">_q_access()</span></tt> function looks like this:</p>
+<pre class="literal-block">
+def _q_access (request):
+    if request.session.user is None:
+        raise NotLoggedInError(&quot;You must be signed in.&quot;)
+    if not (request.session.user.is_admin() or
+            request.session.user.is_fab()):
+        raise AccessError(&quot;You don't have access to the reports page.&quot;)
+</pre>
+<p>This is less error-prone than having to remember to add checks to 
+every single public function.</p>
+</div>
+<div class="section" id="q-lookup-request-name">
+<h1><a name="q-lookup-request-name"><tt class="literal"><span class="pre">_q_lookup(request,</span> <span class="pre">name)</span></tt></a></h1>
+<p>This function translates an arbitrary string into an object that we
+continue traversing.  This is very handy; it lets you put user-space
+objects into your URL-space, eliminating the need for digging ID
+strings out of a query, or checking <tt class="literal"><span class="pre">PATH_INFO</span></tt> after Quixote's done
+with it.  But it is a compromise with security: it opens up the
+traversal algorithm to arbitrary names not listed in <tt class="literal"><span class="pre">_q_exports</span></tt>.
+(<tt class="literal"><span class="pre">_q_lookup()</span></tt> is never called for names listed in <tt class="literal"><span class="pre">_q_exports</span></tt>.)
+You should therefore be extremely paranoid about checking the value of
+<tt class="literal"><span class="pre">name</span></tt>.</p>
+<p><tt class="literal"><span class="pre">request</span></tt> is the request object, as it is everywhere else; <tt class="literal"><span class="pre">name</span></tt> is
+a string containing the next component of the path.  <tt class="literal"><span class="pre">_q_lookup()</span></tt> should
+return either a string (a complete document that will be returned to the
+client) or some object that can be traversed further.  Returning a
+string is useful in simple cases, eg. if you want the <tt class="literal"><span class="pre">/user/joe</span></tt> URI
+to show everything about user &quot;joe&quot; in your database, you would define a
+<tt class="literal"><span class="pre">_q_lookup()</span></tt> in the namespace that handles <tt class="literal"><span class="pre">/user/</span></tt> requests:</p>
+<pre class="literal-block">
+def _q_lookup [plain] (request, name):
+    if not request.session.user.is_admin():
+        raise AccessError(&quot;permission denied&quot;)
+    user = get_database().get_user(name)
+    if user is None:
+        raise TraversalError(&quot;no such user: %r&quot; % name)
+    else:
+        &quot;&lt;h1&gt;User %s&lt;/h1&gt;\n&quot; % html_quote(name)
+        &quot;&lt;table&gt;\n&quot;
+        &quot; &lt;tr&gt;&lt;th&gt;real name&lt;/th&gt;&lt;td&gt;%s&lt;/td&gt;\n&quot; % user.real_name
+        # ...
+</pre>
+<p>(This assumes that the namespace in question is a PTL module, not a
+Python module.)</p>
+<p>To publish more complex objects, you'll want to use <tt class="literal"><span class="pre">_q_lookup()</span></tt>'s
+ability to return a new namespace that Quixote continues traversing.
+The usual way to do this is to return an instance of a class that
+implements the web front-end to your object.  That class must have a
+<tt class="literal"><span class="pre">_q_exports</span></tt> attribute, and it will almost certainly have a
+<tt class="literal"><span class="pre">_q_index()</span></tt> method.  It might also have <tt class="literal"><span class="pre">_q_access()</span></tt> and
+<tt class="literal"><span class="pre">_q_lookup()</span></tt> (yes, <tt class="literal"><span class="pre">_q_lookup()</span></tt> calls can nest arbitrarily
+deeply).</p>
+<p>For example, you might want <tt class="literal"><span class="pre">/user/joe/</span></tt> to show a summary,
+<tt class="literal"><span class="pre">/user/joe/history</span></tt> to show a login history, <tt class="literal"><span class="pre">/user/joe/prefs</span></tt> to be
+a page where joe can edit his personal preferences, etc.  The
+<tt class="literal"><span class="pre">_q_lookup()</span></tt> function would then be</p>
+<pre class="literal-block">
+def _q_lookup (request, name):
+    return UserUI(request, name)
+</pre>
+<p>and the UserUI class, which implements the web interface to user
+objects, might look like</p>
+<pre class="literal-block">
+class UserUI:
+    _q_exports = ['history', 'prefs']
+
+    def __init__ (self, request, name):
+        if not request.session.user.is_admin():
+            raise AccessError(&quot;permission denied&quot;)
+        self.user = get_database().get_user(name)
+        if self.user is None:
+            raise TraversalError(&quot;no such user: %r&quot; % name)
+
+    def _q_index (self, request):
+        # ... generate summary page ...
+
+    def history (self, request):
+        # ... generate history page ...
+
+    def prefs (self, request):
+        # ... generate prefs-editing page ...
+</pre>
+</div>
+<div class="section" id="q-resolve-name">
+<h1><a name="q-resolve-name"><tt class="literal"><span class="pre">_q_resolve(name)</span></tt></a></h1>
+<p><tt class="literal"><span class="pre">_q_resolve()</span></tt> looks a bit like <tt class="literal"><span class="pre">_q_lookup()</span></tt>, but is intended for
+a different purpose.  Quixote applications can be slow to start up 
+because they have to import a large number of Python and PTL modules.
+<tt class="literal"><span class="pre">_q_resolve()</span></tt> is a hook that lets time-consuming imports 
+be postponed until the code is actually needed</p>
+<p><tt class="literal"><span class="pre">name</span></tt> is a string containing the next component of the path.
+<tt class="literal"><span class="pre">_q_resolve()</span></tt> should do whatever imports are necessary and return a
+module that will be traversed further.  (Nothing enforces that this
+function return a module, so you could also return other types, such
+as a class instance, a callable object, or even a string) if the last
+component of the path is being resolved.  Given <tt class="literal"><span class="pre">_q_resolve()</span></tt>'s
+memoization feature, though, returning a module is the most useful
+thing to do.)</p>
+<p><tt class="literal"><span class="pre">_q_resolve()</span></tt> is only ever called for names that are in
+<tt class="literal"><span class="pre">_q_exports</span></tt> and that don't already exist in the containing
+namespace.  It is not passed the request object, so its return value
+can't depend on the client in any way.  Calls are also memoized; after
+being called the object returned will be added to the containing
+namespace, so <tt class="literal"><span class="pre">_q_resolve()</span></tt> will be called at most once for a given
+name.</p>
+<p>Most commonly, <tt class="literal"><span class="pre">_q_resolve()</span></tt> will look something like this:</p>
+<pre class="literal-block">
+_q_exports = [..., 'expensive', ...]
+
+def _q_resolve(name):
+    if name == 'expensive':
+        from otherpackage import expensive
+        return expensive
+</pre>
+<p>Let's say this function is in <tt class="literal"><span class="pre">app.ui</span></tt>.  The first time
+<tt class="literal"><span class="pre">/expensive</span></tt> is accessed, <tt class="literal"><span class="pre">_q_resolve('expensive')</span></tt> is called, the
+<tt class="literal"><span class="pre">otherpackage.expensive</span></tt> module is returned and traversal continues.
+The imported module is also saved as <tt class="literal"><span class="pre">app.ui.expensive</span></tt>, so future
+references to <tt class="literal"><span class="pre">/expensive</span></tt> won't need to invoke the <tt class="literal"><span class="pre">_q_resolve()</span></tt>
+hook.</p>
+</div>
+<div class="section" id="q-exception-handler-request-exception">
+<h1><a name="q-exception-handler-request-exception"><tt class="literal"><span class="pre">_q_exception_handler(request,</span> <span class="pre">exception)</span></tt></a></h1>
+<p>Quixote will display a default error page when a <tt class="literal"><span class="pre">PublishError</span></tt>
+exception is raised.  Before displaying the default page, Quixote will
+search back through the list of namespaces traversed looking for an
+object with a <tt class="literal"><span class="pre">_q_exception_handler</span></tt> attribute.  That attribute is
+expected to be a function and is called with the request and exception
+instance as arguments and should return the error page (e.g. a
+string).  If the handler doesn't want to handle a particular error it
+can re-raise it and the next nearest handler will be found.  If no
+<tt class="literal"><span class="pre">_q_exception_handler</span></tt> is found, the default Quixote handler is
+used.</p>
+<p>$Id: programming.txt 23893 2004-04-06 19:31:20Z nascheme $</p>
+</div>
+</div>
+</body>
+</html>
