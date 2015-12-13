@@ -62,6 +62,10 @@ DEBUG_LOG = None
 # for this setting.)
 DISPLAY_EXCEPTIONS = None
 
+# If set to True, Quixote will not catch exceptions, and
+# exceptions will propagate upwards.
+DEBUG_PROPAGATE_EXCEPTIONS = False
+
 # If true, then any "resource not found" errors will result in a
 # consistent, terse, mostly-useless message.  If false, then the
 # exact cause of failure will be returned.
@@ -196,6 +200,7 @@ class Config:
         'access_log',
         'debug_log',
         'display_exceptions',
+        'debug_propagate_exceptions',
         'secure_errors',
         'error_log',
         'run_once',
