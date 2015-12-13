@@ -546,9 +546,13 @@ class Publisher:
         except errors.PublishError, exc:
             # Exit the publishing loop and return a result right away.
             output = self.finish_interrupted_request(request, exc)
+            if self.config.debug_propagate_exceptions:
+                raise
         except:
             # Some other exception, generate error messages to the logs, etc.
             output = self.finish_failed_request(request)
+            if self.config.debug_propagate_exceptions:
+                raise
         output = self.filter_output(request, output)
         self.log_request(request)
         return output
